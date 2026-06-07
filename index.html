@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AREA 51 - Importador de Ofertas</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{--bg:#05010a;--card:#10051c;--green:#00e676;--gold:#ffd766;--text:#fff;--muted:#cfc7dc;--danger:#ff4d4d;--blue:#33b5ff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#2c0044,#05010a 58%,#000);font-family:Arial,Helvetica,sans-serif;color:var(--text);min-height:100vh;padding:24px}.wrap{max-width:1180px;margin:0 auto}.hero{display:flex;gap:16px;align-items:center;margin-bottom:20px}.logo{width:58px;height:58px;border-radius:50%;object-fit:cover;box-shadow:0 0 20px rgba(0,230,118,.5)}h1{font-size:26px;margin:0}.sub{color:var(--muted);margin-top:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:rgba(16,5,28,.92);border:1px solid rgba(0,230,118,.25);border-radius:18px;padding:18px;box-shadow:0 0 28px rgba(0,230,118,.12)}label{display:block;font-weight:700;margin:12px 0 6px;color:#fff}input[type=file],textarea,select{width:100%;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#08020f;color:#fff;padding:12px;font-size:14px}textarea{min-height:420px;resize:vertical;line-height:1.35}.checks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.check{background:#08020f;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;color:var(--muted);font-size:13px}.check input{margin-right:7px}.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.btn{border:0;border-radius:999px;padding:12px 18px;font-weight:800;cursor:pointer;background:linear-gradient(90deg,var(--green),#25d366);color:#031006;box-shadow:0 0 16px rgba(0,230,118,.45)}.btn.secondary{background:#1b0b2c;color:#fff;border:1px solid rgba(255,255,255,.2);box-shadow:none}.btn.danger{background:linear-gradient(90deg,#ff6b6b,#ff3838);color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}.status{white-space:pre-wrap;background:#06010a;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;min-height:120px;color:#e9ddff;font-family:Consolas,monospace;font-size:13px;max-height:300px;overflow:auto}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.kpi{background:#07020d;border:1px solid rgba(0,230,118,.2);padding:12px;border-radius:12px}.kpi b{display:block;font-size:22px;color:var(--gold)}.kpi span{font-size:12px;color:var(--muted)}.full{grid-column:1/-1}.warn{color:var(--gold)}.dangerText{color:#ff9c9c}.ok{color:#8fffc1}.small{font-size:12px;color:var(--muted);line-height:1.45}.preview{overflow:auto;max-height:360px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid rgba(255,255,255,.1);padding:8px;text-align:left;vertical-align:top}th{color:var(--gold);position:sticky;top:0;background:#10051c}@media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <img class="logo" src="https://i.imgur.com/qW3bMA7.jpeg" alt="AREA 51" />
+      <div><h1>AREA 51 - Importador de Ofertas</h1><div class="sub">Subís Excel + pegás listado nuevo. La herramienta actualiza solo juegos y protege productos físicos.</div></div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>1) Excel descargado de la web</h2>
+        <label>Archivo .xlsx</label>
+        <input id="excelFile" type="file" accept=".xlsx,.xls" />
+        <div class="checks">
+          <label class="check"><input id="keepPhysical" type="checkbox" checked /> No tocar productos físicos</label>
+          <label class="check"><input id="blankId" type="checkbox" checked /> ID vacío para juegos</label>
+          <label class="check"><input id="cleanPlatforms" type="checkbox" checked /> Quitar PS4 / PS5 del nombre</label>
+          <label class="check"><input id="reuseData" type="checkbox" checked /> Reutilizar trailers/descripciones existentes</label>
+          <label class="check"><input id="gtSearch" type="checkbox" checked /> Si falta trailer, poner búsqueda GameTrailers</label>
+          <label class="check"><input id="officialNames" type="checkbox" checked /> Corregir nombres oficiales conocidos</label>
+        </div>
+        <p class="small">Ley AREA 51: no modifica lo que funciona. Reemplaza solo filas de categoría <b>Juegos</b>. Si la categoría no existe o no es Juegos, se conserva.</p>
+      </div>
+      <div class="card">
+        <h2>2) Listado nuevo de ofertas</h2>
+        <label>Pegá acá el listado completo</label>
+        <textarea id="offerText" placeholder="🔥 OFERTA 🧊 MINECRAFT PRIMARIA $ 30.000\n🔰ASSASSINS CREED BLACK FLAG RESYNCED PS5 $ 55.000 PREVENTA 09/07/2026"></textarea>
+      </div>
+      <div class="card full">
+        <div class="btns">
+          <button class="btn" id="processBtn">Generar Excel actualizado</button>
+          <button class="btn secondary" id="downloadReportBtn" disabled>Descargar reporte TXT</button>
+          <button class="btn danger" id="resetBtn">Limpiar pantalla</button>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><b id="kpiPhysical">0</b><span>Físicos conservados</span></div>
+          <div class="kpi"><b id="kpiOldGames">0</b><span>Juegos viejos eliminados</span></div>
+          <div class="kpi"><b id="kpiNewGames">0</b><span>Juegos nuevos cargados</span></div>
+          <div class="kpi"><b id="kpiWarnings">0</b><span>Alertas</span></div>
+        </div>
+        <h3>Reporte operativo</h3>
+        <div id="status" class="status">Esperando Excel y listado...</div>
+      </div>
+      <div class="card full preview">
+        <h3>Vista previa de juegos a cargar</h3>
+        <table id="previewTable"><thead><tr><th>Nombre</th><th>Precio</th><th>Preventa</th><th>Fecha</th><th>Trailer</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+<script>
+const $ = (id) => document.getElementById(id);
+let lastReport = '';
+const FIX_NAMES = new Map(Object.entries({
+  'ALIEN INSOLATION':'ALIEN ISOLATION','BIOCHOCK REMASTERED':'BIOSHOCK REMASTERED','COMANDOS ORIGINS':'COMMANDOS ORIGINS','DOR LA EXPLORADORA RAINFOREST RESCUE':'DORA LA EXPLORADORA RAINFOREST RESCUE','DYINIG LIGHT':'DYING LIGHT','FAR CRY EW DAWN + FAR CRY 5':'FAR CRY NEW DAWN + FAR CRY 5','FIVE NIGHTS AR FREDDYS SECURITY BREACH':'FIVE NIGHTS AT FREDDYS SECURITY BREACH','HOT WHELS LETS RACE':'HOT WHEELS LETS RACE','JUTSU KAISEN CURSED CLASH':'JUJUTSU KAISEN CURSED CLASH','MIRRORS EDGE CATALST':'MIRRORS EDGE CATALYST','MORAL KOMBAT 1':'MORTAL KOMBAT 1','MX VS ATV SPERCROSS ENCORE':'MX VS ATV SUPERCROSS ENCORE','NARUTO TO BORUTO SHINNOBI STRIKER':'NARUTO TO BORUTO SHINOBI STRIKER','RESIDENT EVIO 5':'RESIDENT EVIL 5','SNIPER GHOST WARRIOR CONTRACS 1+2':'SNIPER GHOST WARRIOR CONTRACTS 1+2','SONIC FRONTERS':'SONIC FRONTIERS','STAR WARSR SQUADRONS':'STAR WARS SQUADRONS','TOMB RAIDER ANNIVERARY':'TOMB RAIDER ANNIVERSARY','TOM CLANCYS GHOST RECON WIDLANDS':'TOM CLANCYS GHOST RECON WILDLANDS','WOLFENSTEIN CYBERPIILOT':'WOLFENSTEIN CYBERPILOT','XCOM 2 COLLECION':'XCOM 2 COLLECTION','CALL OF DUTY MODERN WARFARE REMASTTERED':'CALL OF DUTY MODERN WARFARE REMASTERED','BARBIE HORSE TRAILS':'BARBIE HORSE TALES','SPYRO+CRASH TRILOGY':'SPYRO + CRASH TRILOGY','PAY DAY 3':'PAYDAY 3'
+}));
+function log(msg){ $('status').textContent = msg; }
+function normalizeSpaces(s){ return String(s||'').replace(/\s+/g,' ').trim(); }
+function stripEmojis(s){ return String(s||'').replace(/[🔥🎮🔰💰📅✅🚀🧊⚽💣]/g,' '); }
+function cleanPlatformSuffix(name){
+  return normalizeSpaces(name)
+    .replace(/\bPS4\s*[-/]\s*PS5\b/gi,'')
+    .replace(/\bPS5\s*[-/]\s*PS4\b/gi,'')
+    .replace(/\bPS4\b/gi,'')
+    .replace(/\bPS5\b/gi,'')
+    .replace(/\s{2,}/g,' ').trim();
+}
+function normalizeKey(name){ return cleanPlatformSuffix(name).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9+& ]/g,'').replace(/\s+/g,' ').trim(); }
+function officialName(name){
+  let n = normalizeSpaces(name).toUpperCase();
+  n = cleanPlatformSuffix(n).toUpperCase();
+  if ($('officialNames').checked && FIX_NAMES.has(n)) n = FIX_NAMES.get(n);
+  return n;
+}
+function parsePrice(text){
+  const m = String(text).match(/\$\s*([0-9\.]+)/);
+  if (!m) return null;
+  return Number(m[1].replace(/\./g,''));
+}
+function parseDate(text){
+  const m = String(text).match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+  return m ? m[1] : '';
+}
+function cleanNameFromLine(line){
+  let s = stripEmojis(line).toUpperCase();
+  s = s.replace(/🔥?\s*OFERTA\s*/gi,' ')
+       .replace(/NUEVOS LANZAMIENTOS/gi,' ')
+       .replace(/YA DISPONIBLE!?/gi,' ')
+       .replace(/PREVENTA/gi,' ')
+       .replace(/\$\s*[0-9\.]+/g,' ')
+       .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g,' ')
+       .replace(/^JUEGOS\s*PRECIO$/i,' ')
+       .replace(/^[A-Z]$/,' ');
+  // Rescata casos tipo PS4-PS513 eliminando número pegado al final
+  s = s.replace(/(PS4\s*[-/]\s*PS5)\s*\d+$/i,'$1').replace(/(PS5)\s*\d+$/i,'$1');
+  if ($('cleanPlatforms').checked) s = cleanPlatformSuffix(s);
+  return officialName(s);
+}
+function parseOffers(text){
+  const lines = text.split(/\r?\n/).map(l=>normalizeSpaces(l)).filter(Boolean);
+  const items = [], warnings = [];
+  let section = '';
+  for (let i=0;i<lines.length;i++){
+    const raw = lines[i];
+    const upper = raw.toUpperCase();
+    if (/PREVENTAS/.test(upper)){ section='PREVENTA'; continue; }
+    if (/NUEVOS LANZAMIENTOS/.test(upper)){ section='LANZAMIENTO'; continue; }
+    if (/OFERTAS/.test(upper) && !/\$/.test(upper)){ section='OFERTA'; continue; }
+    if (/^[A-Z]$/.test(upper) || /^JUEGOS\s+PRECIO/i.test(upper)) continue;
+    let line = raw;
+    let price = parsePrice(line);
+    let consumedNext = false;
+    if (price == null && i+1 < lines.length && /^\$\s*[0-9\.]+/.test(lines[i+1])){
+      price = parsePrice(lines[i+1]); consumedNext = true;
+    }
+    const hasGameIcon = /🔥|🎮|🔰/.test(raw) || price != null;
+    if (!hasGameIcon) continue;
+    const name = cleanNameFromLine(line);
+    if (!name || name.length < 2) continue;
+    const isPreventa = section === 'PREVENTA' || /PREVENTA/.test(upper);
+    const date = parseDate(line) || (consumedNext ? '' : '');
+    if (price == null) warnings.push(`SIN PRECIO: ${name} | línea: ${raw}`);
+    if (isPreventa && !date) warnings.push(`PREVENTA SIN FECHA: ${name}`);
+    items.push({ name, price, preventa: isPreventa ? 'SI':'', fecha: date, raw });
+    if (consumedNext) i++;
+  }
+  // Deduplicar por nombre: gana último precio listado
+  const map = new Map();
+  for (const item of items) map.set(normalizeKey(item.name), item);
+  return { items: [...map.values()], warnings };
+}
+function colIndex(headers, names, fallback){
+  for (const n of names){
+    const idx = headers.findIndex(h => normalizeSpaces(h).toUpperCase() === n.toUpperCase());
+    if (idx >= 0) return idx;
+  }
+  return fallback;
+}
+function isGameRow(row, cols){
+  const cat = normalizeSpaces(row[cols.cat]||'').toUpperCase();
+  if (cat === 'JUEGOS' || cat === 'JUEGO') return true;
+  return false;
+}
+function gameTrailerSearch(name){ return `https://www.youtube.com/@GameTrailers/search?query=${encodeURIComponent(name)}`; }
+function downloadBlob(content, filename, type){
+  const blob = content instanceof Blob ? content : new Blob([content], {type});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+}
+async function process(){
+  const file = $('excelFile').files[0];
+  const text = $('offerText').value;
+  if (!file) return alert('Subí primero el Excel descargado de la web.');
+  if (!text.trim()) return alert('Pegá el listado nuevo de ofertas.');
+  log('Procesando...');
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data, {type:'array', cellDates:false});
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  if (!rows.length) return alert('El Excel está vacío.');
+  const header = rows[0].map(x=>String(x||''));
+  const maxCols = Math.max(16, ...rows.map(r=>r.length));
+  while(header.length < maxCols) header.push('');
+  const cols = {
+    id: colIndex(header,['ID'],0), cat: colIndex(header,['Categoría','Categoria'],1), name: colIndex(header,['Nombre'],2), price: colIndex(header,['Precio'],3), currency: colIndex(header,['Moneda'],6), offer: colIndex(header,['Oferta'],7), pre: colIndex(header,['Preventa'],11), date: colIndex(header,['Fecha lanzamiento','Fecha de lanzamiento'],12), desc: colIndex(header,['Descripción','Descripcion'],13), trailer: colIndex(header,['Trailer','Tráiler'],14)
+  };
+  const {items, warnings} = parseOffers(text);
+  if (!items.length) return alert('No pude detectar juegos en el listado. Revisá el formato.');
+  const existingMap = new Map();
+  let oldGames = 0, physical = 0;
+  let templateGame = null;
+  for (let r=1;r<rows.length;r++){
+    const row = rows[r]; while(row.length<maxCols) row.push('');
+    if (isGameRow(row, cols)){
+      oldGames++;
+      if (!templateGame) templateGame = [...row];
+      const key = normalizeKey(row[cols.name]);
+      if (key) existingMap.set(key, {desc: row[cols.desc]||'', trailer: row[cols.trailer]||''});
+    } else {
+      physical++;
+    }
+  }
+  if (!templateGame) templateGame = Array(maxCols).fill('');
+  const newRows = [header];
+  for (let r=1;r<rows.length;r++){
+    const row = rows[r]; while(row.length<maxCols) row.push('');
+    if (!isGameRow(row, cols) || !$('keepPhysical').checked) {
+      if (!isGameRow(row, cols)) newRows.push(row);
+    }
+  }
+  const previewBody = $('previewTable').querySelector('tbody'); previewBody.innerHTML='';
+  for (const item of items){
+    const row = [...templateGame]; while(row.length<maxCols) row.push('');
+    const key = normalizeKey(item.name);
+    const old = existingMap.get(key) || {};
+    if ($('blankId').checked) row[cols.id] = '';
+    row[cols.cat] = 'Juegos';
+    row[cols.name] = item.name;
+    row[cols.price] = item.price || '';
+    row[cols.currency] = 'ARS';
+    row[cols.offer] = 'SI';
+    row[cols.pre] = item.preventa;
+    row[cols.date] = item.fecha;
+    if ($('reuseData').checked) row[cols.desc] = old.desc || row[cols.desc] || '';
+    let trailer = $('reuseData').checked ? (old.trailer || '') : '';
+    if (!trailer && $('gtSearch').checked) trailer = gameTrailerSearch(item.name);
+    row[cols.trailer] = trailer;
+    newRows.push(row);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.name}</td><td>${item.price||'<span class="dangerText">SIN PRECIO</span>'}</td><td>${item.preventa||''}</td><td>${item.fecha||''}</td><td>${trailer ? 'OK' : '<span class="warn">VACÍO</span>'}</td>`;
+    previewBody.appendChild(tr);
+  }
+  const newWs = XLSX.utils.aoa_to_sheet(newRows);
+  wb.Sheets[sheetName] = newWs;
+  const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  downloadBlob(new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), 'AREA51_Catalogo_OFERTAS_ACTUALIZADO.xlsx');
+  lastReport = [
+    'AREA 51 - REPORTE IMPORTADOR DE OFERTAS', '',
+    `Hoja procesada: ${sheetName}`,
+    `Productos físicos conservados: ${physical}`,
+    `Juegos viejos eliminados: ${oldGames}`,
+    `Juegos nuevos cargados: ${items.length}`,
+    `ID vacío para juegos: ${$('blankId').checked ? 'SI':'NO'}`,
+    `Nombres sin PS4/PS5: ${$('cleanPlatforms').checked ? 'SI':'NO'}`,
+    '', 'Alertas:', ...(warnings.length ? warnings.map(w=>' - '+w) : [' - Sin alertas críticas.']),
+    '', 'Juegos cargados:', ...items.map(i=>` - ${i.name} | ${i.price||'SIN PRECIO'} | Preventa: ${i.preventa||'NO'} | Fecha: ${i.fecha||'-'}`)
+  ].join('\n');
+  $('downloadReportBtn').disabled = false;
+  $('kpiPhysical').textContent = physical;
+  $('kpiOldGames').textContent = oldGames;
+  $('kpiNewGames').textContent = items.length;
+  $('kpiWarnings').textContent = warnings.length;
+  log(lastReport);
+}
+$('processBtn').addEventListener('click', ()=>process().catch(err=>{console.error(err); log('ERROR: '+err.message); alert('Error procesando: '+err.message);}));
+$('downloadReportBtn').addEventListener('click', ()=>downloadBlob(lastReport || 'Sin reporte', 'AREA51_reporte_importacion.txt', 'text/plain;charset=utf-8'));
+$('resetBtn').addEventListener('click', ()=>{ $('offerText').value=''; $('excelFile').value=''; $('status').textContent='Esperando Excel y listado...'; $('previewTable').querySelector('tbody').innerHTML=''; ['kpiPhysical','kpiOldGames','kpiNewGames','kpiWarnings'].forEach(id=>$(id).textContent='0'); $('downloadReportBtn').disabled=true; });
+</script>
+</body>
+</html>
