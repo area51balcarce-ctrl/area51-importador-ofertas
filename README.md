@@ -45,3 +45,31 @@ Output directory:
 ```bash
 dist
 ```
+
+
+## Mejora PS4 / PS5 sin duplicados
+
+El importador ahora agrupa automáticamente juegos con el mismo nombre oficial:
+
+- Columna D: precio general cuando el juego está para ambas plataformas al mismo precio o no se indica plataforma.
+- Columna E: precio PS4 cuando PS4 tiene valor propio.
+- Columna F: precio PS5 cuando PS5 tiene valor propio.
+
+Ejemplo:
+
+```txt
+GOD OF WAR RAGNAROK PS4 $20.000
+GOD OF WAR RAGNAROK PS5 $30.000
+```
+
+Resultado: una sola fila con nombre `GOD OF WAR RAGNAROK`, precio PS4 en E y precio PS5 en F.
+
+Si aparece:
+
+```txt
+GTA V PS4-PS5 $32.000
+```
+
+Resultado: una sola fila con precio general en D.
+
+Regla: no se duplican filas por plataforma.
