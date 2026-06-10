@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AREA 51 - Importador V13 Inteligente</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    :root{--bg:#05010a;--card:#10051c;--green:#00e676;--gold:#ffd766;--text:#fff;--muted:#cfc7dc;--danger:#ff4d4d;--blue:#33b5ff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#2c0044,#05010a 58%,#000);font-family:Arial,Helvetica,sans-serif;color:var(--text);min-height:100vh;padding:24px}.wrap{max-width:1180px;margin:0 auto}.hero{display:flex;gap:16px;align-items:center;margin-bottom:20px}.logo{width:58px;height:58px;border-radius:50%;object-fit:cover;box-shadow:0 0 20px rgba(0,230,118,.5)}h1{font-size:26px;margin:0}.sub{color:var(--muted);margin-top:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:rgba(16,5,28,.92);border:1px solid rgba(0,230,118,.25);border-radius:18px;padding:18px;box-shadow:0 0 28px rgba(0,230,118,.12)}label{display:block;font-weight:700;margin:12px 0 6px;color:#fff}input[type=file],input[type=number],textarea,select{width:100%;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#08020f;color:#fff;padding:12px;font-size:14px}textarea{min-height:420px;resize:vertical;line-height:1.35}.checks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.check{background:#08020f;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;color:var(--muted);font-size:13px}.check input{margin-right:7px}.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.btn{border:0;border-radius:999px;padding:12px 18px;font-weight:800;cursor:pointer;background:linear-gradient(90deg,var(--green),#25d366);color:#031006;box-shadow:0 0 16px rgba(0,230,118,.45)}.btn.secondary{background:#1b0b2c;color:#fff;border:1px solid rgba(255,255,255,.2);box-shadow:none}.btn.danger{background:linear-gradient(90deg,#ff6b6b,#ff3838);color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}.status{white-space:pre-wrap;background:#06010a;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;min-height:120px;color:#e9ddff;font-family:Consolas,monospace;font-size:13px;max-height:300px;overflow:auto}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.kpi{background:#07020d;border:1px solid rgba(0,230,118,.2);padding:12px;border-radius:12px}.kpi b{display:block;font-size:22px;color:var(--gold)}.kpi span{font-size:12px;color:var(--muted)}.full{grid-column:1/-1}.warn{color:var(--gold)}.dangerText{color:#ff9c9c}.ok{color:#8fffc1}.small{font-size:12px;color:var(--muted);line-height:1.45}.preview{overflow:auto;max-height:360px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid rgba(255,255,255,.1);padding:8px;text-align:left;vertical-align:top}th{color:var(--gold);position:sticky;top:0;background:#10051c}@media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <img class="logo" src="https://i.imgur.com/qW3bMA7.jpeg" alt="AREA 51" />
+      <div><h1>AREA 51 - Importador V13 Inteligente</h1><div class="sub">Subís Excel + pegás listado nuevo. Automatiza precios, ganancia, IDs, trailers reales, portadas por ID, alertas avanzadas, historial y base AREA51_DB.</div></div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>1) Excel descargado de la web</h2>
+        <label>Archivo .xlsx</label>
+        <input id="excelFile" type="file" accept=".xlsx,.xls" />
+
+        <label>Ganancia automática por juego</label>
+        <input id="profitAmount" type="number" value="15000" min="0" step="500" />
+        <p class="small">Se suma automáticamente al precio base del listado antes de cargar D/E/F. Ejemplo: $30.000 + $15.000 = $45.000.</p>
+
+        <div class="checks">
+          <label class="check"><input id="keepPhysical" type="checkbox" checked /> No tocar productos físicos</label>
+          <label class="check"><input id="blankId" type="checkbox" checked /> Conservar ID existente / ID vacío solo en juegos nuevos</label>
+          <label class="check"><input id="cleanPlatforms" type="checkbox" checked /> Quitar PS4 / PS5 del nombre</label>
+          <label class="check"><input id="reuseData" type="checkbox" checked /> Reutilizar trailers/descripciones existentes</label>
+          <label class="check"><input id="autoDesc" type="checkbox" checked /> Completar descripciones premium faltantes</label>
+          <label class="check"><input id="forcePremiumDesc" type="checkbox" checked /> Reemplazar descripciones genéricas/incompletas</label>
+          <label class="check"><input id="useIGDB" type="checkbox" checked /> Consultar IGDB para mejorar datos técnicos</label>
+          <label class="check"><input id="gtSearch" type="checkbox" checked /> Si falta trailer, buscar link real GameTrailers</label>
+          <label class="check"><input id="officialNames" type="checkbox" checked /> Corregir nombres oficiales conocidos</label>
+          <label class="check"><input id="mergePlatforms" type="checkbox" checked /> Unificar PS4/PS5 en una sola fila</label>
+        </div>
+        <p class="small">Ley AREA 51: no modifica lo que funciona. Reemplaza solo filas de categoría <b>Juegos</b>. Si la categoría no existe o no es Juegos, se conserva. Conserva IDs existentes cuando el juego ya está en el Excel exportado, deja ID vacío solo para juegos nuevos. Agrupa PS4/PS5 en una sola fila usando columnas D/E/F y completa SIEMPRE la columna N con ficha comercial AREA 51 cuando esté vacía, sea genérica o venga incompleta. Las portadas masivas se generan únicamente para filas con categoría <b>Juegos</b> y con ID existente; se ignoran Celulares, Hardware, PSPlus y todo lo que no sea juego.</p>
+      </div>
+      <div class="card">
+        <h2>2) Listado nuevo de ofertas</h2>
+        <label>Pegá acá el listado completo</label>
+        <textarea id="offerText" placeholder="🔥 OFERTA 🧊 MINECRAFT PRIMARIA $ 30.000\n🔰ASSASSINS CREED BLACK FLAG RESYNCED PS5 $ 55.000 PREVENTA 09/07/2026"></textarea>
+      </div>
+      <div class="card full">
+        <div class="btns">
+          <button class="btn" id="processBtn">Generar Excel actualizado</button>
+          <button class="btn secondary" id="priceOnlyBtn">Actualizar solo precios</button>
+          <button class="btn secondary" id="coversBtn">Generar portadas por ID</button>
+          <button class="btn secondary" id="downloadReportBtn" disabled>Descargar reporte TXT</button>
+          <button class="btn secondary" id="downloadAlertsBtn" disabled>Descargar alertas TXT</button>
+          <button class="btn secondary" id="downloadHistoryBtn" disabled>Descargar historial TXT</button>
+          <button class="btn danger" id="resetBtn">Limpiar pantalla</button>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><b id="kpiPhysical">0</b><span>Físicos conservados</span></div>
+          <div class="kpi"><b id="kpiOldGames">0</b><span>Juegos viejos eliminados</span></div>
+          <div class="kpi"><b id="kpiNewGames">0</b><span>Juegos nuevos cargados</span></div>
+          <div class="kpi"><b id="kpiWarnings">0</b><span>Alertas</span></div>
+        </div>
+        <h3>Reporte operativo</h3>
+        <div id="status" class="status">Esperando Excel y listado...</div>
+      </div>
+      <div class="card full preview">
+        <h3>Vista previa de juegos a cargar</h3>
+        <table id="previewTable"><thead><tr><th>Nombre</th><th>Precio general D</th><th>PS4 E</th><th>PS5 F</th><th>Preventa</th><th>Fecha</th><th>Descripción</th><th>Trailer</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+<script>
+const $ = (id) => document.getElementById(id);
+let lastReport = '';
+let lastAlerts = '';
+let lastHistory = '';
+const FIX_NAMES = new Map(Object.entries({
+  'ALIEN INSOLATION':'ALIEN ISOLATION','BIOCHOCK REMASTERED':'BIOSHOCK REMASTERED','COMANDOS ORIGINS':'COMMANDOS ORIGINS','DOR LA EXPLORADORA RAINFOREST RESCUE':'DORA LA EXPLORADORA RAINFOREST RESCUE','DYINIG LIGHT':'DYING LIGHT','FAR CRY EW DAWN + FAR CRY 5':'FAR CRY NEW DAWN + FAR CRY 5','FIVE NIGHTS AR FREDDYS SECURITY BREACH':'FIVE NIGHTS AT FREDDYS SECURITY BREACH','HOT WHELS LETS RACE':'HOT WHEELS LETS RACE','JUTSU KAISEN CURSED CLASH':'JUJUTSU KAISEN CURSED CLASH','MIRRORS EDGE CATALST':'MIRRORS EDGE CATALYST','MORAL KOMBAT 1':'MORTAL KOMBAT 1','MX VS ATV SPERCROSS ENCORE':'MX VS ATV SUPERCROSS ENCORE','NARUTO TO BORUTO SHINNOBI STRIKER':'NARUTO TO BORUTO SHINOBI STRIKER','RESIDENT EVIO 5':'RESIDENT EVIL 5','SNIPER GHOST WARRIOR CONTRACS 1+2':'SNIPER GHOST WARRIOR CONTRACTS 1+2','SONIC FRONTERS':'SONIC FRONTIERS','STAR WARSR SQUADRONS':'STAR WARS SQUADRONS','TOMB RAIDER ANNIVERARY':'TOMB RAIDER ANNIVERSARY','TOM CLANCYS GHOST RECON WIDLANDS':'TOM CLANCYS GHOST RECON WILDLANDS','WOLFENSTEIN CYBERPIILOT':'WOLFENSTEIN CYBERPILOT','XCOM 2 COLLECION':'XCOM 2 COLLECTION','CALL OF DUTY MODERN WARFARE REMASTTERED':'CALL OF DUTY MODERN WARFARE REMASTERED','BARBIE HORSE TRAILS':'BARBIE HORSE TALES','SPYRO+CRASH TRILOGY':'SPYRO + CRASH TRILOGY','PAY DAY 3':'PAYDAY 3','MINECRAFT PRIMARIA':'MINECRAFT','PES 21':'EFOOTBALL PES 2021','PES21':'EFOOTBALL PES 2021','EFOOTBALL PES 21':'EFOOTBALL PES 2021','OFERTA MINECRAFT':'MINECRAFT','OFERTA PES 21':'EFOOTBALL PES 2021'
+}));
+
+const DESCRIPTION_DB = new Map(Object.entries({
+  'SONIC FRONTIERS': `🦔 Aventura en mundo abierto donde Sonic explora islas llenas de desafíos, velocidad y combates. Combinás plataformas clásicas con exploración libre, enfrentando enemigos y resolviendo puzzles en un entorno amplio y dinámico.
+
+💾 Peso: 30 GB aprox.
+🌎 Idioma: Español (España), Inglés y otros
+🎮 Multijugador: ❌ No tiene multijugador
+🔒 PS Plus: ❌ No requiere PS Plus
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'SPYRO TRILOGY': `🐉 Colección remasterizada que incluye las aventuras clásicas de Spyro. Explorás mundos coloridos, rescatás dragones, recolectás gemas y derrotás enemigos con gráficos renovados.
+
+💾 Peso: 35 GB aprox.
+🌎 Idioma: Español (España), Inglés y otros
+🎮 Multijugador: ❌ No tiene multijugador
+🔒 PS Plus: ❌ No requiere PS Plus
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'THE QUARRY': `🎬 Juego de terror interactivo donde un grupo de adolescentes queda atrapado en un campamento durante la última noche de verano. Tus decisiones afectan el destino de cada personaje en una historia con múltiples finales.
+
+💾 Peso: 50 GB aprox.
+🌎 Idioma: Español (España), Inglés y otros
+🎮 Multijugador: ✔️ Modo cooperativo local/online
+🔒 PS Plus: ✔️ Requiere PS Plus para online
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'UNTIL DAWN': `🎬 Juego de terror interactivo donde un grupo de amigos queda atrapado en una montaña durante una noche llena de decisiones mortales. Cada elección afecta la historia y determina quién vive o muere.
+
+💾 Peso: 40 GB aprox.
+🌎 Idioma: Español latino, Español (España), Inglés y otros
+🎮 Multijugador: ❌ No tiene multijugador
+🔒 PS Plus: ❌ No requiere PS Plus
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'THE LAST OF US PART II REMASTERED': `🧟‍♂️ Aventura de acción y supervivencia en un mundo postapocalíptico donde acompañás a Ellie en una historia intensa, emocional y cinematográfica. Explorás escenarios detallados y enfrentás humanos e infectados.
+
+💾 Peso: 80 GB aprox.
+🌎 Idioma: Español latino, Español (España), Inglés y otros
+🎮 Multijugador: ❌ No tiene multijugador
+🔒 PS Plus: ❌ No requiere PS Plus
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'THE LAST OF US PART 1': `🧟‍♂️ Aventura de acción y supervivencia donde acompañás a Joel y Ellie en un viaje por un mundo devastado. Combina exploración, sigilo, combate e historia cinematográfica.
+
+💾 Peso: 80 GB aprox.
+🌎 Idioma: Español latino, Español (España), Inglés y otros
+🎮 Multijugador: ❌ No tiene multijugador
+🔒 PS Plus: ❌ No requiere PS Plus
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'TONY HAWKS PRO SKATER 1+2': `🛹 Remasterización de los clásicos Tony Hawk’s Pro Skater 1 y 2 con gráficos renovados y jugabilidad fiel al original. Realizás trucos, combos y desafíos en pistas icónicas.
+
+💾 Peso: 25 GB aprox.
+🌎 Idioma: Español (España), Inglés y otros
+🎮 Multijugador: ✔️ Online y local
+🔒 PS Plus: ✔️ Requiere PS Plus para online
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'XCOM 2 COLLECTION': `👽 Juego de estrategia por turnos donde liderás una resistencia contra una invasión alienígena. Gestionás recursos, desarrollás tecnología y comandás escuadrones en combates tácticos.
+
+💾 Peso: 45 GB aprox.
+🌎 Idioma: Español (España), Inglés y otros
+🎮 Multijugador: ✔️ Online
+🔒 PS Plus: ✔️ Requiere PS Plus para online
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+  'ASSASSINS CREED VALHALLA': `🛡️ Aventura de acción y mundo abierto ambientada en la era vikinga. Liderás a Eivor, explorás Inglaterra y Noruega, formás alianzas y participás en combates, saqueos y batallas épicas.
+
+💾 Peso: 75 GB aprox.
+🌎 Idioma: Español (España), Inglés y otros
+🎮 Multijugador: ❌ No tiene multijugador
+🔒 PS Plus: ❌ No requiere PS Plus
+
+✅ Original y completo
+⚡ Entrega inmediata`,
+}));
+
+function uniqueList(arr){
+  return [...new Set((arr || []).filter(Boolean).map(x => String(x).trim()).filter(Boolean))];
+}
+function igdbReleaseDate(ts){
+  if (!ts) return '';
+  try { return new Date(ts * 1000).toLocaleDateString('es-AR'); } catch(e){ return ''; }
+}
+function igdbGenres(info){
+  return uniqueList(info?.genres?.map(g => g.name) || []);
+}
+function igdbPlatforms(info){
+  return uniqueList(info?.platforms?.map(p => p.name) || []);
+}
+function igdbModes(info){
+  return uniqueList(info?.game_modes?.map(m => m.name) || []);
+}
+function igdbLanguages(info){
+  const langs = uniqueList((info?.language_supports || []).map(x => x?.language?.name));
+  // IGDB suele devolver nombres en inglés. Los convertimos a formato catálogo cuando aparecen.
+  const out = [];
+  if (langs.some(l => /spanish|español/i.test(l))) out.push('Español');
+  if (langs.some(l => /english|inglés/i.test(l))) out.push('Inglés');
+  if (out.length) out.push('otros');
+  return out.length ? out.join(', ') : '';
+}
+function igdbMultiplayer(info){
+  const modes = igdbModes(info).join(' ').toLowerCase();
+  const mm = info?.multiplayer_modes || [];
+  const hasOnline = mm.some(m => (m.onlinemax || 0) > 1 || (m.onlinecoopmax || 0) > 1 || m.onlinecoop === true);
+  const hasLocal = mm.some(m => (m.offlinemax || 0) > 1 || (m.offlinecoopmax || 0) > 1 || m.offlinecoop === true);
+  const hasMultiplayerMode = /multiplayer|co-operative|split screen|massively multiplayer/i.test(modes);
+  if (hasOnline && hasLocal) return '✔️ Online y local';
+  if (hasOnline) return '✔️ Online';
+  if (hasLocal) return '✔️ Local';
+  if (hasMultiplayerMode) return '✔️ Multijugador';
+  if (/single player/i.test(modes)) return '❌ No tiene multijugador';
+  return '';
+}
+function igdbPsPlus(multiplayerText){
+  if (/Online/i.test(multiplayerText || '')) return '✔️ Requiere PS Plus para online';
+  if (/No tiene multijugador/i.test(multiplayerText || '')) return '❌ No requiere PS Plus';
+  return '';
+}
+function cleanSummaryToCommercialBase(summary){
+  // No copiamos texto oficial completo. Tomamos una idea corta y la reescribimos con plantilla AREA 51.
+  const t = String(summary || '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  const first = t.split(/[.!?]/).filter(Boolean)[0] || '';
+  return first.length > 12 ? first.slice(0, 180) : '';
+}
+async function fetchIgdbForGames(names, reportLines){
+  const map = new Map();
+  if (!$('useIGDB') || !$('useIGDB').checked) return map;
+  const clean = uniqueList(names.map(n => normalizeKey(n))).filter(Boolean);
+  if (!clean.length) return map;
+  reportLines.push('Consultando IGDB para mejorar fichas técnicas...');
+  const batchSize = 10;
+  for (let i = 0; i < clean.length; i += batchSize) {
+    const batch = clean.slice(i, i + batchSize);
+    try {
+      const res = await fetch('/api/igdb', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({games: batch})
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'IGDB respondió error');
+      for (const item of data.items || []) {
+        if (item.ok && item.selected) map.set(normalizeKey(item.game), item.selected);
+        else reportLines.push(`IGDB sin dato: ${item.game} | ${item.error || 'sin resultado'}`);
+      }
+    } catch (err) {
+      reportLines.push(`IGDB no disponible en tanda ${Math.floor(i/batchSize)+1}: ${err.message}`);
+    }
+  }
+  reportLines.push(`IGDB: ${map.size} juegos enriquecidos.`);
+  return map;
+}
+
+function genreByName(name){
+  const n = String(name || '').toUpperCase();
+  if (/FIFA|PES|EA SPORTS|NBA|UFC|WWE|F1|WRC|RUGBY|TENNIS|TOP SPIN|MATCHPOINT|AO TENNIS|CAPTAIN TSUBASA|MLB|NASCAR|RIDE|MXGP|MX VS ATV|HOT WHEELS|GRAN TURISMO|ASSETTO|GRID|DIRT|NEED FOR SPEED|THE CREW|BURNOUT|TONY HAWK|SKATER/.test(n)) return 'sports';
+  if (/RESIDENT EVIL|SILENT HILL|OUTLAST|THE EVIL WITHIN|ALAN WAKE|DEAD SPACE|UNTIL DAWN|THE QUARRY|BLAIR WITCH|CHERNOBYLITE|LITTLE NIGHTMARES|FIVE NIGHTS|DYING LIGHT|DEAD ISLAND|THE FOREST|HOLLOWBODY/.test(n)) return 'horror';
+  if (/CALL OF DUTY|BATTLEFIELD|DOOM|SNIPER|WOLFENSTEIN|RAINBOW SIX|INSURGENCY|WORLD WAR Z|HELL LET LOOSE|KILLING FLOOR|PAYDAY|READY OR NOT|STAR WARS BATTLEFRONT|SQUADRONS/.test(n)) return 'shooter';
+  if (/MORTAL KOMBAT|TEKKEN|STREET FIGHTER|INJUSTICE|DRAGON BALL|NARUTO|MARVEL VS CAPCOM|CAPCOM FIGHTING|KING OF FIGHTERS|ONE PIECE|JUJUTSU|DEMON SLAYER|MY HERO/.test(n)) return 'fighting';
+  if (/MINECRAFT|TERRARIA|SLIME RANCHER|NO MANS SKY|CONAN|ARK|RUST|GREEN HELL|SURVIVAL|DAY Z/.test(n)) return 'survival';
+  if (/LEGO|PAW PATROL|PEPPA|SPONGEBOB|SONIC|SPYRO|CRASH|BEN 10|BARBIE|MY LITTLE PONY|DORA|SACKBOY|JUMANJI|HOT WHEELS|NICKELODEON|LOONEY|SNOOPY/.test(n)) return 'family';
+  if (/CITIES|SIMULATOR|MANAGER|TRUCK|BUS|FISHING|HUNTER|CONSTRUCTION|CAR MECHANIC|TRANSPORT FEVER|EURO TRUCK|FERNBUS/.test(n)) return 'simulator';
+  if (/XCOM|CRUSADER|SUDDEN STRIKE|COMMANDOS|DISCIPLES/.test(n)) return 'strategy';
+  if (/GOD OF WAR|ASSASSIN|GTA|RED DEAD|SPIDER|BATMAN|HOGWARTS|HORIZON|GHOST|CYBERPUNK|TOMB RAIDER|UNCHARTED|STAR WARS JEDI|MAFIA|FAR CRY|AVATAR|CONTROL|SEKIRO|ELDEN|LORDS OF THE FALLEN|THE WITCHER|DAYS GONE|DEATH STRANDING|KENA|JUST CAUSE|WATCH DOGS|METRO|PREY|DISHONORED|DEATHLOOP/.test(n)) return 'action';
+  return 'general';
+}
+function detailTemplate(opening, icon='🎮', tech={}){
+  const peso = tech.peso || 'Pendiente de confirmación';
+  const idioma = tech.idioma || 'Español (España), Inglés y otros';
+  const multi = tech.multijugador || 'Pendiente de confirmación';
+  const psplus = tech.psplus || 'Pendiente de confirmación';
+  return `${icon} ${opening}
+
+💾 Peso: ${peso}
+🌎 Idioma: ${idioma}
+🎮 Multijugador: ${multi}
+🔒 PS Plus: ${psplus}
+
+✅ Original y completo
+⚡ Entrega inmediata`;
+}
+function fallbackTechByGenre(name){
+  const genre = genreByName(name);
+  const n = String(name || '').toUpperCase();
+  let multijugador = '❌ No tiene multijugador';
+  let psplus = '❌ No requiere PS Plus';
+  if (/(CALL OF DUTY|BATTLEFIELD|HELL LET LOOSE|RAINBOW SIX|INSURGENCY|PAYDAY|READY OR NOT|WORLD WAR Z|STREET FIGHTER|TEKKEN|MORTAL KOMBAT|UFC|NBA|FIFA|PES|EFOOTBALL|WRC|GRAN TURISMO|NEED FOR SPEED|THE CREW|SONIC RACING|HOT WHEELS|OVERCOOKED|IT TAKES TWO|A WAY OUT|MINECRAFT|NO MANS SKY|RUST|ARK|CONAN|SNOWRUNNER)/.test(n)) {
+    multijugador = '✔️ Online / local según modo disponible';
+    psplus = '✔️ Requiere PS Plus para funciones online';
+  }
+  if (/(007 FIRST LIGHT|ALAN WAKE|DAYS GONE|GOD OF WAR|HOGWARTS|THE LAST OF US|SPIDER|ASSASSINS CREED|CYBERPUNK|RED DEAD|GTA V|ASTRO BOT|SILENT HILL|RESIDENT EVIL 2|RESIDENT EVIL 3|RESIDENT EVIL 4|THE EVIL WITHIN|UNTIL DAWN|THE QUARRY)/.test(n)) {
+    multijugador = '❌ No tiene multijugador';
+    psplus = '❌ No requiere PS Plus';
+  }
+  return { peso: 'Consultar tamaño según versión disponible', multijugador, psplus };
+}
+function generatedDescription(name, igdbInfo=null){
+  const key = normalizeKey(name);
+  if (DESCRIPTION_DB.has(key)) return DESCRIPTION_DB.get(key);
+  const igdbMulti = igdbMultiplayer(igdbInfo);
+  const fallback = fallbackTechByGenre(name);
+  const tech = {
+    idioma: igdbLanguages(igdbInfo) || 'Español (España), Inglés y otros',
+    multijugador: igdbMulti || fallback.multijugador,
+    psplus: igdbPsPlus(igdbMulti) || fallback.psplus,
+    peso: fallback.peso
+  };
+  const igdbGenreText = igdbGenres(igdbInfo).join(', ');
+  const igdbBase = cleanSummaryToCommercialBase(igdbInfo?.summary || igdbInfo?.storyline);
+
+  // Descripciones premium exactas para títulos puntuales que querés destacar.
+  const PREMIUM_DB = new Map(Object.entries({
+    '007 FIRST LIGHT': detailTemplate('Aventura de acción y espionaje donde asumís el papel de un joven James Bond en una historia original que muestra sus primeros pasos como agente secreto. En 007 First Light utilizás tecnología avanzada, infiltración, combate y conducción para completar misiones alrededor del mundo mientras descubrís el origen del agente 007.', '🕵️‍♂️'),
+    'DIRECTIVE 8020': detailTemplate('Aventura narrativa de terror y ciencia ficción donde una misión espacial se transforma en una amenaza extrema. En Directive 8020 explorás escenarios cargados de tensión, tomás decisiones importantes y enfrentás situaciones donde cada acción puede cambiar el destino de la tripulación.', '🚀'),
+    'SAROS': detailTemplate('Aventura de acción futurista con combates intensos, exploración y una ambientación de ciencia ficción. En Saros avanzás por escenarios hostiles, enfrentás amenazas poderosas y descubrís una historia marcada por tecnología, misterio y supervivencia.', '🌌'),
+    'ASSASSINS CREED BLACK FLAG RESYNCED': detailTemplate('Aventura de acción y mundo abierto ambientada en la era dorada de los piratas. En Assassin’s Creed Black Flag Resynced explorás mares, ciudades y fortalezas, participás en combates navales y vivís una historia de piratería, sigilo y libertad.', '🏴‍☠️'),
+    'BEAST OF REINCARNATION': detailTemplate('Aventura de acción con ambientación oscura donde enfrentás criaturas peligrosas en un mundo marcado por el misterio y la reencarnación. En Beast of Reincarnation combinás exploración, combate y progresión para descubrir una historia intensa y desafiante.', '🐺'),
+    'CAPTAIN TSUBASA II WORLD FIGHTERS': detailTemplate('Juego deportivo de fútbol arcade basado en el universo de Captain Tsubasa, con partidos cargados de técnicas especiales, rivalidades y jugadas espectaculares. En Captain Tsubasa II World Fighters competís con equipos y personajes icónicos en encuentros llenos de energía.', '⚽'),
+    'HELL LET LOOSE VIETNAM': detailTemplate('Shooter táctico bélico ambientado en conflictos militares de gran escala. En Hell Let Loose Vietnam participás en combates intensos por objetivos, coordinación de escuadrones y enfrentamientos donde la estrategia y el trabajo en equipo son fundamentales.', '💥'),
+    'HOLLOWBODY': detailTemplate('Juego de terror y supervivencia con estética oscura, exploración tensa y recursos limitados. En Hollowbody recorrés escenarios inquietantes, resolvés situaciones peligrosas y enfrentás una experiencia pensada para quienes buscan suspenso clásico y atmósfera pesada.', '😱'),
+    'LEGO BATMAN EL LEGADO DEL CABALLERO DE LA NOCHE': detailTemplate('Aventura de acción familiar en el universo de Batman con el humor y estilo característico de LEGO. En LEGO Batman El Legado del Caballero de la Noche recorrés Gotham, enfrentás villanos clásicos y resolvés desafíos usando personajes, habilidades y construcción.', '🦇'),
+    'MARVEL TOKON FIGHTING SOULS': detailTemplate('Juego de pelea con personajes del universo Marvel, combates rápidos y habilidades especiales. En Marvel Tokon Fighting Souls te enfrentás en duelos intensos usando héroes y villanos con estilos únicos, combos y ataques espectaculares.', '🥊'),
+    'STAR WARS GALACTIC RACER': detailTemplate('Juego de carreras ambientado en el universo Star Wars con velocidad, circuitos galácticos y vehículos futuristas. En Star Wars Galactic Racer competís en pistas llenas de acción, obstáculos y referencias a una de las sagas más icónicas de la ciencia ficción.', '🌠'),
+    'THE BLOOD OF DAWNWALKER': detailTemplate('Aventura de acción y rol con ambientación oscura donde explorás un mundo marcado por criaturas sobrenaturales, decisiones y combates intensos. En The Blood of Dawnwalker descubrís una historia de poder, sangre y supervivencia.', '🩸'),
+    'UFC 6': detailTemplate('Juego deportivo de artes marciales mixtas con combates intensos dentro del octágono. En UFC 6 elegís luchadores, aplicás golpes, derribos y sumisiones, y competís en peleas donde la técnica, resistencia y precisión definen el resultado.', '🥊'),
+    'GOD OF WAR RAGNAROK': detailTemplate('Aventura de acción mitológica donde acompañás a Kratos y Atreus en un viaje por los reinos nórdicos mientras enfrentan dioses, criaturas y decisiones que marcan el destino del mundo. En God of War Ragnarök combinás combate brutal, exploración y una historia cinematográfica de alto impacto.', '⚔️'),
+    'GRAN TURISMO 7': detailTemplate('Simulador de conducción con autos detallados, circuitos reales y ficticios, progresión de garaje y competencias para todos los estilos. En Gran Turismo 7 disfrutás carreras técnicas, personalización y una experiencia pensada para amantes del automovilismo.', '🏎️'),
+    'GTA V': detailTemplate('Aventura de acción y mundo abierto donde seguís las historias de Michael, Franklin y Trevor en Los Santos. En GTA V explorás una ciudad enorme, realizás misiones, conducís vehículos, participás en actividades y vivís una experiencia cargada de libertad, acción y humor criminal.', '🚗'),
+    'RED DEAD REDEMPTION 2': detailTemplate('Aventura de acción y mundo abierto ambientada en el final del viejo oeste. En Red Dead Redemption 2 acompañás a Arthur Morgan y la banda de Van der Linde en una historia profunda de lealtad, supervivencia y decisiones difíciles.', '🤠'),
+    'MINECRAFT PRIMARIA': detailTemplate('Juego de construcción, exploración y creatividad donde podés crear mundos, recolectar recursos y vivir aventuras a tu manera. En Minecraft Primaria disfrutás una experiencia ideal para jugar, imaginar y construir sin límites.', '🧊'),
+    'PES 21': detailTemplate('Juego de fútbol con partidos dinámicos, equipos reconocidos y una jugabilidad enfocada en control, pases y definición. En PES 21 competís en encuentros intensos, armás estrategias y disfrutás una experiencia clásica para fanáticos del fútbol.', '⚽'),
+    'ALAN WAKE': detailTemplate('Aventura de acción y suspenso psicológico donde acompañás a un escritor atrapado en una historia oscura que parece cobrar vida. En Alan Wake explorás escenarios inquietantes, usás la luz como herramienta principal y enfrentás amenazas sobrenaturales.', '🔦'),
+    'ALAN WAKE II': detailTemplate('Terror psicológico con narrativa intensa, investigación y supervivencia. En Alan Wake II alternás entre personajes, explorás escenarios oscuros y enfrentás amenazas vinculadas a una historia donde la realidad y la ficción se mezclan.', '😱'),
+    'ASSASSINS CREED ORIGINS': detailTemplate('Aventura de acción y mundo abierto ambientada en el Antiguo Egipto. En Assassin’s Creed Origins descubrís el origen de la Hermandad, explorás templos, desiertos y ciudades, y combinás sigilo, combate y exploración.', '🏺'),
+    'ASTRO BOT': detailTemplate('Aventura de plataformas colorida y creativa donde acompañás a Astro por mundos llenos de desafíos, secretos y referencias al universo PlayStation. En Astro Bot disfrutás niveles variados, controles precisos y una experiencia familiar de alta calidad.', '🤖'),
+    'CYBERPUNK 2077': detailTemplate('RPG de acción en mundo abierto ambientado en Night City, una ciudad futurista dominada por tecnología, crimen y corporaciones. En Cyberpunk 2077 personalizás a V, tomás decisiones y completás misiones con combate, hackeo y exploración.', '🌃'),
+    'THE LAST OF US PART 1': detailTemplate('Aventura de acción y supervivencia en un mundo postapocalíptico donde acompañás a Joel y Ellie en un viaje cargado de tensión, combate, sigilo y emoción. En The Last of Us Part I vivís una historia profunda con narrativa cinematográfica.', '🧟‍♂️')
+  }));
+
+  function applyTechToDescription(desc){
+    return String(desc || '')
+      .replace(/💾 Peso:.*$/m, `💾 Peso: ${tech.peso}`)
+      .replace(/🌎 Idioma:.*$/m, `🌎 Idioma: ${tech.idioma}`)
+      .replace(/🎮 Multijugador:.*$/m, `🎮 Multijugador: ${tech.multijugador}`)
+      .replace(/🔒 PS Plus:.*$/m, `🔒 PS Plus: ${tech.psplus}`);
+  }
+  if (PREMIUM_DB.has(key)) return applyTechToDescription(PREMIUM_DB.get(key));
+
+  const genre = genreByName(name);
+  const openings = {
+    action: `Aventura de acción donde vivís una experiencia intensa con exploración, combates y misiones llenas de ritmo. En ${name} avanzás por escenarios detallados, enfrentás enemigos y disfrutás una propuesta ideal para quienes buscan historia, adrenalina y buen gameplay.`,
+    horror: `Juego de terror y supervivencia con tensión constante, exploración y momentos cargados de suspenso. En ${name} enfrentás amenazas peligrosas, administrás recursos y vivís una experiencia pensada para jugar con los nervios al límite.`,
+    shooter: `Juego de disparos con acción directa, combates intensos y ritmo constante. En ${name} participás en enfrentamientos cargados de adrenalina, usando armas, estrategia y reflejos para superar cada desafío.`,
+    sports: `Juego deportivo ideal para competir, mejorar habilidades y disfrutar partidos, carreras o torneos completos. En ${name} vivís la emoción del deporte con controles dinámicos y una propuesta pensada para jugar solo o con amigos.`,
+    fighting: `Juego de pelea con combates rápidos, personajes variados y movimientos especiales. En ${name} podés enfrentarte en duelos intensos, practicar combos y disfrutar partidas competitivas llenas de acción.`,
+    survival: `Juego de supervivencia y exploración donde tenés que administrar recursos, adaptarte al entorno y superar peligros. En ${name} cada decisión ayuda a avanzar, mejorar y mantenerte con vida.`,
+    family: `Aventura familiar con jugabilidad accesible, personajes reconocibles y desafíos entretenidos. En ${name} disfrutás una experiencia ideal para todas las edades, con acción, color y diversión directa.`,
+    simulator: `Simulador pensado para quienes disfrutan gestionar, conducir, construir o perfeccionar tareas con detalle. En ${name} avanzás cumpliendo objetivos, mejorando habilidades y viviendo una experiencia más técnica y completa.`,
+    strategy: `Juego de estrategia donde cada decisión importa. En ${name} planificás movimientos, administrás recursos y resolvés desafíos tácticos para avanzar con inteligencia y precisión.`,
+    general: `Juego completo para disfrutar una experiencia entretenida, con desafíos, progresión y momentos pensados para enganchar desde la primera partida. En ${name} encontrás una propuesta sólida para sumar a tu biblioteca digital.`
+  };
+  const icons = {
+    action:'🎮', horror:'😱', shooter:'🔫', sports:'🏆', fighting:'🥊', survival:'🌍', family:'👨‍👩‍👧‍👦', simulator:'🛠️', strategy:'🧠', general:'🎮'
+  };
+  let opening = openings[genre];
+  if (igdbBase && genre === 'general') opening = `Juego de ${igdbGenreText || 'acción y aventura'} donde vivís una experiencia basada en ${igdbBase.toLowerCase()}. En ${name} disfrutás una propuesta completa adaptada al catálogo digital de AREA 51.`;
+  return detailTemplate(opening, icons[genre], tech);
+}
+function isGeneratedArea51Description(text){
+  const t = String(text || '');
+  return /✅ Original y completo/.test(t) && /⚡ Entrega inmediata/.test(t);
+}
+function looksLikeWrongGameDescription(name, text){
+  const n = normalizeKey(name);
+  const t = String(text || '').toUpperCase();
+  const known = ['FAR CRY','MINECRAFT','PES','EFOOTBALL','GOD OF WAR','007 FIRST LIGHT','ASSASSINS CREED','SONIC','SPYRO','THE LAST OF US','RED DEAD','GTA','GRAN TURISMO','MORTAL KOMBAT'];
+  for (const k of known){
+    if (t.includes(k) && !n.includes(k.replace(/[^A-Z0-9 ]/g,'').trim())) {
+      if (!(k === 'PES' && false)) return true;
+    }
+  }
+  return false;
+}
+function isGenericOrIncompleteDescription(text, name=''){
+  const t = String(text || '').trim();
+  if (!t) return true;
+  if (name && looksLikeWrongGameDescription(name, t)) return true;
+  if (t.length < 220) return true;
+  if (/Juego digital para PlayStation/i.test(t)) return true;
+  if (/Idioma según versión disponible/i.test(t)) return true;
+  if (!/💾\s*Peso:/i.test(t)) return true;
+  if (!/🌎\s*Idioma:/i.test(t)) return true;
+  if (!/🎮\s*Multijugador:/i.test(t)) return true;
+  if (!/🔒\s*PS Plus:/i.test(t)) return true;
+  if (!/✅\s*Original y completo/i.test(t)) return true;
+  if (!/⚡\s*Entrega inmediata/i.test(t)) return true;
+  return false;
+}
+function getDescriptionForImport(name, oldDesc, igdbInfo=null){
+  const force = $('forcePremiumDesc') ? $('forcePremiumDesc').checked : true;
+  const auto = $('autoDesc') ? $('autoDesc').checked : true;
+  const current = String(oldDesc || '').trim();
+  if (current && (!force || !isGenericOrIncompleteDescription(current, name))) {
+    return {text: current, source: 'conservada'};
+  }
+  if (!auto) return {text: current, source: current ? 'conservada_incompleta' : 'vacía'};
+  return {text: generatedDescription(name, igdbInfo), source: current ? 'reemplazada_premium' : 'generada_premium'};
+}
+function log(msg){ $('status').textContent = msg; }
+function normalizeSpaces(s){ return String(s||'').replace(/\s+/g,' ').trim(); }
+function stripEmojis(s){ return String(s||'').replace(/[🔥🎮🔰💰📅✅🚀🧊⚽💣]/g,' '); }
+function cleanPlatformSuffix(name){
+  return normalizeSpaces(name)
+    .replace(/\bPS4\s*[-/]\s*PS5\b/gi,'')
+    .replace(/\bPS5\s*[-/]\s*PS4\b/gi,'')
+    .replace(/\bPS4\b/gi,'')
+    .replace(/\bPS5\b/gi,'')
+    .replace(/\s{2,}/g,' ').trim();
+}
+function normalizeKey(name){ return cleanPlatformSuffix(name).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9+& ]/g,'').replace(/\s+/g,' ').trim(); }
+function removeMarketingNoise(value){
+  return normalizeSpaces(String(value || '')
+    .replace(/[¡!]+/g,' ')
+    .replace(/[\*•·]+/g,' ')
+    .replace(/\bOFERTA\b/gi,' ')
+    .replace(/\bOFERTAS\b/gi,' ')
+    .replace(/\bESPECIALES\b/gi,' ')
+    .replace(/\bNUEVOS\b\s+\bLANZAMIENTOS\b/gi,' ')
+    .replace(/\bYA\s+DISPONIBLE\b!?/gi,' ')
+    .replace(/\bPREVENTA\b/gi,' ')
+    .replace(/\bJUEGOS\b\s*\bPRECIO\b/gi,' ')
+    .replace(/\s+/g,' '));
+}
+function officialName(name){
+  let n = removeMarketingNoise(name).toUpperCase();
+  n = cleanPlatformSuffix(n).toUpperCase();
+  n = n.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  n = n.replace(/[^A-Z0-9+&\.\- ]/g,' ').replace(/\s+/g,' ').trim();
+  // Corrige números basura pegados al final cuando el listado viene copiado de una tabla.
+  n = n.replace(/\b(PS4\s*[-/]\s*PS5|PS5|PS4)\s*\d+$/i, '$1').trim();
+  if ($('cleanPlatforms').checked) n = cleanPlatformSuffix(n).toUpperCase();
+  if ($('officialNames').checked && FIX_NAMES.has(n)) n = FIX_NAMES.get(n);
+  return normalizeSpaces(n);
+}
+function parsePrice(text){
+
+  const m = String(text).match(/\$\s*([0-9\.]+)/);
+  if (!m) return null;
+  return Number(m[1].replace(/\./g,''));
+}
+function parseDate(text){
+  const m = String(text).match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+  return m ? m[1] : '';
+}
+function cleanNameFromLine(line){
+  let s = stripEmojis(line).toUpperCase();
+  s = s.replace(/\$\s*[0-9\.]+/g,' ')
+       .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g,' ');
+  // Rescata casos tipo PS4-PS513 eliminando número pegado al final.
+  s = s.replace(/(PS4\s*[-/]\s*PS5)\s*\d+$/i,'$1').replace(/(PS5|PS4)\s*\d+$/i,'$1');
+  return officialName(s);
+}
+function detectPlatformsFromLine(line){
+  const u = String(line || '').toUpperCase();
+  const hasPS4 = /\bPS4\b/.test(u);
+  const hasPS5 = /\bPS5\b/.test(u);
+  if (hasPS4 && hasPS5) return 'BOTH';
+  if (hasPS4) return 'PS4';
+  if (hasPS5) return 'PS5';
+  return 'GENERAL';
+}
+function mergePlatformItem(target, item){
+  const price = item.price || '';
+  const platform = item.platform || 'GENERAL';
+  if (item.preventa === 'SI') target.preventa = 'SI';
+  if (item.fecha && !target.fecha) target.fecha = item.fecha;
+  target.raws.push(item.raw);
+  target.platforms.add(platform);
+  // Regla AREA 51:
+  // D = precio general o ambas plataformas al mismo valor.
+  // E = precio exclusivo PS4.
+  // F = precio exclusivo PS5.
+  if (platform === 'BOTH' || platform === 'GENERAL') {
+    if (!target.price) target.price = price;
+    else if (price && Number(target.price) !== Number(price)) {
+      target.warnings.push(`PRECIO GENERAL CONFLICTIVO: ${target.name} | ${target.price} vs ${price}`);
+      // Si ya había precio general y aparece otro distinto, no pisamos a ciegas.
+    }
+  } else if (platform === 'PS4') {
+    if (!target.pricePS4) target.pricePS4 = price;
+    else if (price && Number(target.pricePS4) !== Number(price)) target.warnings.push(`PRECIO PS4 CONFLICTIVO: ${target.name} | ${target.pricePS4} vs ${price}`);
+  } else if (platform === 'PS5') {
+    if (!target.pricePS5) target.pricePS5 = price;
+    else if (price && Number(target.pricePS5) !== Number(price)) target.warnings.push(`PRECIO PS5 CONFLICTIVO: ${target.name} | ${target.pricePS5} vs ${price}`);
+  }
+  // Si quedó PS4 y PS5 con mismo precio, pasarlo a D y limpiar E/F.
+  if (target.pricePS4 && target.pricePS5 && Number(target.pricePS4) === Number(target.pricePS5)) {
+    target.price = target.pricePS4;
+    target.pricePS4 = '';
+    target.pricePS5 = '';
+  }
+}
+function parseOffers(text){
+  const lines = text.split(/\r?\n/).map(l=>normalizeSpaces(l)).filter(Boolean);
+  const rawItems = [], warnings = [];
+  let section = '';
+  for (let i=0;i<lines.length;i++){
+    const raw = lines[i];
+    const upper = raw.toUpperCase();
+    if (/PREVENTAS/.test(upper)){ section='PREVENTA'; continue; }
+    if (/NUEVOS LANZAMIENTOS/.test(upper)){ section='LANZAMIENTO'; continue; }
+    if (/OFERTAS/.test(upper) && !/\$/.test(upper)){ section='OFERTA'; continue; }
+    if (/^[A-Z]$/.test(upper) || /^JUEGOS\s+PRECIO/i.test(upper)) continue;
+    let line = raw;
+    let price = parsePrice(line);
+    let consumedNext = false;
+    if (price == null && i+1 < lines.length && /^\$\s*[0-9\.]+/.test(lines[i+1])){
+      price = parsePrice(lines[i+1]); consumedNext = true;
+    }
+    const hasGameIcon = /🔥|🎮|🔰/.test(raw) || price != null;
+    if (!hasGameIcon) continue;
+    const platform = detectPlatformsFromLine(line);
+    const name = cleanNameFromLine(line);
+    if (!name || name.length < 2) continue;
+    const isPreventa = section === 'PREVENTA' || /PREVENTA/.test(upper);
+    const date = parseDate(line) || (consumedNext ? '' : '');
+    if (price == null) warnings.push(`SIN PRECIO: ${name} | línea: ${raw}`);
+    if (isPreventa && !date) warnings.push(`PREVENTA SIN FECHA: ${name}`);
+    rawItems.push({ name, price, pricePS4:'', pricePS5:'', platform, preventa: isPreventa ? 'SI':'', fecha: date, raw });
+    if (consumedNext) i++;
+  }
+  const map = new Map();
+  for (const item of rawItems) {
+    const key = normalizeKey(item.name);
+    if (!$('mergePlatforms').checked) {
+      map.set(key + '|' + item.platform + '|' + map.size, {...item, platforms:new Set([item.platform]), raws:[item.raw], warnings:[]});
+      continue;
+    }
+    if (!map.has(key)) {
+      map.set(key, {name:item.name, price:'', pricePS4:'', pricePS5:'', preventa:item.preventa, fecha:item.fecha, raw:item.raw, raws:[], platforms:new Set(), warnings:[]});
+    }
+    mergePlatformItem(map.get(key), item);
+  }
+  const items = [...map.values()].map(item => {
+    for (const w of item.warnings || []) warnings.push(w);
+    // Si solo hay un precio específico, no lo movemos a D: queda en E o F para que la web cobre por plataforma.
+    return item;
+  });
+  return { items, warnings };
+}
+function colIndex(headers, names, fallback){
+  for (const n of names){
+    const idx = headers.findIndex(h => normalizeSpaces(h).toUpperCase() === n.toUpperCase());
+    if (idx >= 0) return idx;
+  }
+  return fallback;
+}
+function isGameRow(row, cols){
+  const cat = normalizeSpaces(row[cols.cat]||'').toUpperCase();
+  if (cat === 'JUEGOS' || cat === 'JUEGO') return true;
+  return false;
+}
+function gameTrailerSearch(name){ return `https://www.youtube.com/@GameTrailers/search?query=${encodeURIComponent(name)}`; }
+function isSearchTrailerLink(value){ return /youtube\.com\/\@GameTrailers\/search\?query=/i.test(String(value || '')); }
+function isRealYoutubeTrailerLink(value){ return /youtube\.com\/watch\?v=|youtu\.be\//i.test(String(value || '')); }
+async function fetchRealGameTrailer(name, reportLines){
+  const cleanName = normalizeSpaces(cleanPlatformSuffix(removeMarketingNoise(name)));
+  try {
+    const res = await fetch('/api/buscarTrailer?juego=' + encodeURIComponent(cleanName));
+    const data = await res.json();
+    if (data && data.ok && data.url) {
+      return { ok: true, url: data.url, title: data.title || '', source: 'GameTrailers' };
+    }
+    const msg = data?.error || 'Sin resultado en GameTrailers';
+    if (reportLines) reportLines.push(`TRAILER PENDIENTE: ${cleanName} | ${msg}`);
+    return { ok:false, url:'⚠️ TRAILER NO ENCONTRADO - REVISAR MANUALMENTE', error: msg };
+  } catch (err) {
+    if (reportLines) reportLines.push(`TRAILER ERROR: ${cleanName} | ${err.message}`);
+    return { ok:false, url:'⚠️ TRAILER NO ENCONTRADO - REVISAR MANUALMENTE', error: err.message };
+  }
+}
+function downloadBlob(content, filename, type){
+  const blob = content instanceof Blob ? content : new Blob([content], {type});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+}
+
+async function loadJsonSafe(path, reportLines){
+  try {
+    const res = await fetch(path + '?v=' + Date.now(), { cache:'no-store' });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data && typeof data === 'object' ? data : {};
+  } catch (err) {
+    if (reportLines) reportLines.push(`No se pudo leer ${path}: ${err.message}`);
+    return {};
+  }
+}
+function recordFromArea51DB(db, name){
+  const key = normalizeKey(name);
+  if (!db || !key) return null;
+  if (db[key]) return db[key];
+  const foundKey = Object.keys(db).find(k => normalizeKey(k) === key);
+  return foundKey ? db[foundKey] : null;
+}
+function descriptionFromArea51Record(record){
+  if (!record) return '';
+  if (record.descripcion) return String(record.descripcion);
+  const opening = record.texto || record.descripcion_comercial || '';
+  if (!opening) return '';
+  return detailTemplate(
+    opening,
+    record.icono || '🎮',
+    {
+      peso: record.peso,
+      idioma: record.idioma || record.idiomas,
+      multijugador: record.multijugador,
+      psplus: record.psplus || record.ps_plus
+    }
+  );
+}
+function trailerFromArea51Record(record){
+  if (!record) return '';
+  return record.trailer || record.trailer_url || '';
+}
+function applyLoadedAliases(aliasObj){
+  if (!aliasObj || typeof aliasObj !== 'object') return 0;
+  let count = 0;
+  for (const [from, to] of Object.entries(aliasObj)) {
+    const k = normalizeKey(from);
+    const v = normalizeSpaces(String(to || '').toUpperCase());
+    if (k && v && !FIX_NAMES.has(k)) {
+      FIX_NAMES.set(k, v);
+      count++;
+    }
+  }
+  return count;
+}
+function buildGameKeySet(rows, cols, maxCols){
+  const set = new Set();
+  for (let r=1;r<rows.length;r++){
+    const row = rows[r]; while(row.length<maxCols) row.push('');
+    if (isGameRow(row, cols)) {
+      const key = normalizeKey(row[cols.name]);
+      if (key) set.add(key);
+    }
+  }
+  return set;
+}
+function formatPriceARS(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value || '-';
+  return '$' + n.toLocaleString('es-AR');
+}
+function pushPriceHistory(historyLines, name, oldRecord, webPrices, cols){
+  if (!oldRecord || !oldRecord.row) return;
+  const oldD = oldRecord.row[cols.price] || '';
+  const oldE = oldRecord.row[cols.pricePS4] || '';
+  const oldF = oldRecord.row[cols.pricePS5] || '';
+  const newD = webPrices.priceD || '';
+  const newE = webPrices.priceE || '';
+  const newF = webPrices.priceF || '';
+  if (String(oldD) !== String(newD) || String(oldE) !== String(newE) || String(oldF) !== String(newF)) {
+    historyLines.push(`${name}`);
+    historyLines.push(`  D catálogo: ${formatPriceARS(oldD)} → ${formatPriceARS(newD)}`);
+    historyLines.push(`  E PS4: ${formatPriceARS(oldE)} → ${formatPriceARS(newE)}`);
+    historyLines.push(`  F PS5: ${formatPriceARS(oldF)} → ${formatPriceARS(newF)}`);
+    historyLines.push('');
+  }
+}
+
+function getProfitAmount(){
+  const raw = $('profitAmount') ? $('profitAmount').value : '0';
+  const value = Number(String(raw || '0').replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
+function addProfit(price, profit){
+  if (price === null || price === undefined || price === '') return '';
+  const value = Number(price);
+  if (!Number.isFinite(value)) return '';
+  return value + profit;
+}
+function platformSetHas(item, value){
+  try {
+    return item.platforms && typeof item.platforms.has === 'function' && item.platforms.has(value);
+  } catch(e) {
+    return false;
+  }
+}
+function calculateWebPrices(item, profit){
+  const hasBothExplicit = platformSetHas(item, 'BOTH');
+  const hasPS4 = platformSetHas(item, 'PS4');
+  const hasPS5 = platformSetHas(item, 'PS5');
+  const hasGeneral = platformSetHas(item, 'GENERAL');
+
+  const general = addProfit(item.price, profit);
+  const ps4 = addProfit(item.pricePS4, profit);
+  const ps5 = addProfit(item.pricePS5, profit);
+
+  let priceD = '';
+  let priceE = '';
+  let priceF = '';
+
+  if (hasBothExplicit || (hasPS4 && hasPS5 && general && !ps4 && !ps5)) {
+    priceD = general;
+    priceE = general;
+    priceF = general;
+    return { priceD, priceE, priceF };
+  }
+
+  if (hasGeneral && general) {
+    priceD = general;
+    return { priceD, priceE, priceF };
+  }
+
+  if (ps4 && ps5) {
+    priceD = ps4;
+    priceE = ps4;
+    priceF = ps5;
+    return { priceD, priceE, priceF };
+  }
+
+  if (ps5) {
+    priceD = ps5;
+    priceF = ps5;
+    return { priceD, priceE, priceF };
+  }
+
+  if (ps4) {
+    priceD = ps4;
+    priceE = ps4;
+    return { priceD, priceE, priceF };
+  }
+
+  if (general) priceD = general;
+  return { priceD, priceE, priceF };
+}
+async function process(options = {}){
+  const priceOnlyMode = Boolean(options.priceOnly);
+  const file = $('excelFile').files[0];
+  const text = $('offerText').value;
+  if (!file) return alert('Subí primero el Excel descargado de la web.');
+  if (!text.trim()) return alert('Pegá el listado nuevo de ofertas.');
+  log('Procesando...');
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data, {type:'array', cellDates:false});
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  if (!rows.length) return alert('El Excel está vacío.');
+  const header = rows[0].map(x=>String(x||''));
+  const maxCols = Math.max(16, ...rows.map(r=>r.length));
+  while(header.length < maxCols) header.push('');
+  const cols = {
+    id: colIndex(header,['ID'],0), cat: colIndex(header,['Categoría','Categoria'],1), name: colIndex(header,['Nombre'],2), price: colIndex(header,['Precio'],3), pricePS4: colIndex(header,['Precio PS4','PS4','Precio ps4'],4), pricePS5: colIndex(header,['Precio PS5','PS5','Precio ps5'],5), currency: colIndex(header,['Moneda'],6), offer: colIndex(header,['Oferta'],7), pre: colIndex(header,['Preventa'],11), date: colIndex(header,['Fecha lanzamiento','Fecha de lanzamiento'],12), desc: colIndex(header,['Descripción','Descripcion'],13), trailer: colIndex(header,['Trailer','Tráiler'],14)
+  };
+  const oldGameKeysSet = buildGameKeySet(rows, cols, maxCols);
+  const {items, warnings} = parseOffers(text);
+  if (!items.length) return alert('No pude detectar juegos en el listado. Revisá el formato.');
+  const loadedConfigReport = [];
+  const aliasObj = await loadJsonSafe('/area51_alias.json', loadedConfigReport);
+  const aliasLoaded = applyLoadedAliases(aliasObj);
+  const area51DB = await loadJsonSafe('/area51_games.json', loadedConfigReport);
+  const profitAmount = getProfitAmount();
+  const existingMap = new Map();
+  let oldGames = 0, physical = 0;
+  let descReused = 0, descGenerated = 0, descEmpty = 0;
+  let idsPreserved = 0, newGamesWithoutId = 0, existingDuplicateNames = 0;
+  const advancedAlerts = [];
+  const priceHistoryLines = [];
+  let templateGame = null;
+  for (let r=1;r<rows.length;r++){
+    const row = rows[r]; while(row.length<maxCols) row.push('');
+    if (isGameRow(row, cols)){
+      oldGames++;
+      if (!templateGame) templateGame = [...row];
+      const key = normalizeKey(row[cols.name]);
+      if (key) {
+        const record = {
+          row: [...row],
+          id: row[cols.id] || '',
+          desc: row[cols.desc] || '',
+          trailer: row[cols.trailer] || ''
+        };
+        if (!existingMap.has(key)) {
+          existingMap.set(key, record);
+        } else {
+          existingDuplicateNames++;
+          const saved = existingMap.get(key);
+          // Si hay duplicados históricos, priorizamos la fila que tenga ID.
+          if (!saved.id && record.id) existingMap.set(key, record);
+        }
+      }
+    } else {
+      physical++;
+    }
+  }
+  if (!templateGame) templateGame = Array(maxCols).fill('');
+  const newRows = [header];
+  for (let r=1;r<rows.length;r++){
+    const row = rows[r]; while(row.length<maxCols) row.push('');
+    // Ley AREA 51: los productos físicos/no juegos se conservan intactos.
+    // Los juegos se reconstruyen desde el listado nuevo, pero si ya existían se conserva su ID y datos base.
+    if (!isGameRow(row, cols)) newRows.push(row);
+  }
+  const igdbReport = [];
+  if (loadedConfigReport.length) igdbReport.push(...loadedConfigReport);
+  if (aliasLoaded) igdbReport.push(`Aliases cargados desde area51_alias.json: ${aliasLoaded}`);
+  const igdbMap = priceOnlyMode ? new Map() : await fetchIgdbForGames(items.map(i => i.name), igdbReport);
+  const previewBody = $('previewTable').querySelector('tbody'); previewBody.innerHTML='';
+  for (const item of items){
+    const key = normalizeKey(item.name);
+    const old = existingMap.get(key) || {};
+    const row = old.row ? [...old.row] : [...templateGame];
+    while(row.length<maxCols) row.push('');
+    if (old.id) {
+      row[cols.id] = old.id;
+      idsPreserved++;
+    } else {
+      row[cols.id] = '';
+      newGamesWithoutId++;
+    }
+    row[cols.cat] = 'Juegos';
+    row[cols.name] = item.name;
+    const webPrices = calculateWebPrices(item, profitAmount);
+    pushPriceHistory(priceHistoryLines, item.name, old, webPrices, cols);
+    if (!old.id) advancedAlerts.push(`SIN ID: ${item.name}`);
+    if (item.preventa === 'SI' && !item.fecha) advancedAlerts.push(`PREVENTA SIN FECHA: ${item.name}`);
+    row[cols.price] = webPrices.priceD || '';
+    row[cols.pricePS4] = webPrices.priceE || '';
+    row[cols.pricePS5] = webPrices.priceF || '';
+    row[cols.currency] = 'ARS';
+    row[cols.offer] = 'SI';
+    row[cols.pre] = item.preventa;
+    row[cols.date] = item.fecha;
+    const oldDesc = $('reuseData').checked ? (old.desc || '') : '';
+    const areaRecord = recordFromArea51DB(area51DB, item.name);
+    let desc = '';
+    if (priceOnlyMode) {
+      desc = oldDesc;
+    } else {
+      const areaDesc = descriptionFromArea51Record(areaRecord);
+      if (areaDesc) {
+        desc = areaDesc;
+        descGenerated++;
+      } else {
+        const descResult = getDescriptionForImport(item.name, oldDesc, igdbMap.get(normalizeKey(item.name)) || null);
+        desc = descResult.text || '';
+        if (descResult.source === 'conservada') descReused++;
+        else if (descResult.source === 'generada_premium' || descResult.source === 'reemplazada_premium') descGenerated++;
+        else if (!desc) descEmpty++;
+      }
+    }
+    if (!desc) {
+      descEmpty++;
+      advancedAlerts.push(`DESCRIPCIÓN VACÍA: ${item.name}`);
+    }
+    row[cols.desc] = desc;
+    let trailer = $('reuseData').checked ? (old.trailer || '') : '';
+    const areaTrailer = trailerFromArea51Record(areaRecord);
+    if (!priceOnlyMode && areaTrailer) trailer = areaTrailer;
+    if (!priceOnlyMode && $('gtSearch').checked) {
+      // Conserva links reales existentes y reemplaza búsquedas/vacíos por el primer trailer real de GameTrailers.
+      if (!trailer || isSearchTrailerLink(trailer)) {
+        log(`Buscando trailer real ${newRows.length}/${items.length}: ${item.name}`);
+        const trailerResult = await fetchRealGameTrailer(item.name, warnings);
+        trailer = trailerResult.url;
+      }
+    }
+    if (!trailer || /^⚠️/.test(String(trailer))) advancedAlerts.push(`TRAILER PENDIENTE: ${item.name}`);
+    row[cols.trailer] = trailer;
+    newRows.push(row);
+    const tr = document.createElement('tr');
+    const hasAnyPrice = item.price || item.pricePS4 || item.pricePS5;
+    tr.innerHTML = `<td>${item.name}</td><td>${webPrices.priceD||''}</td><td>${webPrices.priceE||''}</td><td>${webPrices.priceF||''}</td><td>${item.preventa||''}</td><td>${item.fecha||''}</td><td>${desc ? 'OK' : '<span class="warn">VACÍA</span>'}</td><td>${trailer ? 'OK' : '<span class="warn">VACÍO</span>'}${hasAnyPrice ? '' : '<br><span class="dangerText">SIN PRECIO</span>'}</td>`;
+    previewBody.appendChild(tr);
+  }
+  const newWs = XLSX.utils.aoa_to_sheet(newRows);
+  wb.Sheets[sheetName] = newWs;
+  const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  downloadBlob(new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), 'AREA51_Catalogo_OFERTAS_ACTUALIZADO.xlsx');
+  const newGameKeysSet = new Set(items.map(i => normalizeKey(i.name)).filter(Boolean));
+  const addedGames = items.filter(i => !oldGameKeysSet.has(normalizeKey(i.name))).map(i => i.name);
+  const removedGames = [...oldGameKeysSet].filter(k => !newGameKeysSet.has(k));
+  if (removedGames.length) advancedAlerts.push(`JUEGOS ELIMINADOS DEL LISTADO: ${removedGames.length}`);
+  if (addedGames.length) advancedAlerts.push(`JUEGOS NUEVOS AGREGADOS: ${addedGames.length}`);
+  lastAlerts = [
+    'AREA 51 - ALERTAS AVANZADAS',
+    '',
+    `Modo: ${priceOnlyMode ? 'SOLO PRECIOS' : 'IMPORTACIÓN COMPLETA'}`,
+    `Total alertas: ${advancedAlerts.length + warnings.length}`,
+    '',
+    'Alertas críticas / revisión:',
+    ...((advancedAlerts.length || warnings.length) ? [...advancedAlerts, ...warnings].map(x=>' - '+x) : [' - Sin alertas.']),
+    '',
+    'Juegos agregados:',
+    ...(addedGames.length ? addedGames.map(x=>' - '+x) : [' - Ninguno.']),
+    '',
+    'Juegos eliminados del listado nuevo:',
+    ...(removedGames.length ? removedGames.map(x=>' - '+x) : [' - Ninguno.'])
+  ].join('\n');
+  lastHistory = [
+    'AREA 51 - HISTORIAL DE PRECIOS',
+    '',
+    `Ganancia automática aplicada: $${profitAmount.toLocaleString('es-AR')}`,
+    '',
+    ...(priceHistoryLines.length ? priceHistoryLines : ['Sin cambios de precio detectados para juegos existentes.'])
+  ].join('\n');
+  lastReport = [
+    'AREA 51 - REPORTE IMPORTADOR DE OFERTAS', '',
+    `Hoja procesada: ${sheetName}`,
+    `Productos físicos conservados: ${physical}`,
+    `Juegos viejos eliminados: ${oldGames}`,
+    `Juegos nuevos cargados: ${items.length}`,
+    `Modo proceso: ${priceOnlyMode ? 'SOLO PRECIOS' : 'IMPORTACIÓN COMPLETA'}`,
+    `AREA51_DB registros disponibles: ${Object.keys(area51DB || {}).length}`,
+    `Juegos agregados detectados: ${addedGames.length}`,
+    `Juegos eliminados detectados: ${removedGames.length}`,
+    `Ganancia automática aplicada: $${profitAmount.toLocaleString('es-AR')}`,
+    `IDs existentes conservados: ${idsPreserved}`,
+    `Juegos nuevos sin ID: ${newGamesWithoutId}`,
+    `Duplicados históricos de nombre detectados: ${existingDuplicateNames}`,
+    `Modo ID: conservar existentes / nuevos sin ID`,
+    `Nombres sin PS4/PS5: ${$('cleanPlatforms').checked ? 'SI':'NO'}`,
+    `Descripciones conservadas: ${descReused}`,
+    `Descripciones generadas: ${descGenerated}`,
+    `Descripciones vacías: ${descEmpty}`,
+    `Normalizador V8: nombres promocionales corregidos, descripciones cruzadas bloqueadas y trailers reales GameTrailers`,
+    `IGDB activo: ${$('useIGDB') && $('useIGDB').checked ? 'SI':'NO'}`,
+    `IGDB enriquecidos: ${igdbMap ? igdbMap.size : 0}`,
+    ...igdbReport,
+    `Autocompletar descripción: ${$('autoDesc').checked ? 'SI':'NO'}`,
+    `Reemplazar genéricas/incompletas: ${$('forcePremiumDesc').checked ? 'SI':'NO'}`, 
+    '', 'Alertas:', ...(warnings.length ? warnings.map(w=>' - '+w) : [' - Sin alertas críticas.']),
+    '', 'Juegos cargados:', ...items.map(i=>{ const p=calculateWebPrices(i, profitAmount); return ` - ${i.name} | D:${p.priceD||'-'} | PS4:${p.priceE||'-'} | PS5:${p.priceF||'-'} | Preventa: ${i.preventa||'NO'} | Fecha: ${i.fecha||'-'}`; })
+  ].join('\n');
+  $('downloadReportBtn').disabled = false;
+  if ($('downloadAlertsBtn')) $('downloadAlertsBtn').disabled = false;
+  if ($('downloadHistoryBtn')) $('downloadHistoryBtn').disabled = false;
+  $('kpiPhysical').textContent = physical;
+  $('kpiOldGames').textContent = oldGames;
+  $('kpiNewGames').textContent = items.length;
+  $('kpiWarnings').textContent = String(warnings.length + advancedAlerts.length);
+  log(lastReport);
+}
+
+function safeFileName(value){
+  return String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .slice(0,80) || 'juego';
+}
+function extensionFromContentType(type){
+  const t = String(type || '').toLowerCase();
+  if (t.includes('png')) return 'png';
+  if (t.includes('webp')) return 'webp';
+  if (t.includes('gif')) return 'gif';
+  if (t.includes('avif')) return 'avif';
+  if (t.includes('heic') || t.includes('heif')) return 'heic';
+  return 'jpg';
+}
+function isBlockedCoverCategory(cat){
+  const c = normalizeSpaces(cat).toUpperCase();
+  return c === 'CELULARES' || c === 'HARDWARE' || c === 'PSPLUS' || c === 'PS PLUS';
+}
+async function generateCoversZip(){
+  const file = $('excelFile').files[0];
+  if (!file) return alert('Subí primero el Excel descargado de la web.');
+  if (!window.JSZip) return alert('No cargó JSZip. Recargá la página e intentá nuevamente.');
+
+  log('Leyendo Excel para portadas...');
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data, {type:'array', cellDates:false});
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  if (!rows.length) return alert('El Excel está vacío.');
+
+  const header = rows[0].map(x=>String(x||''));
+  const maxCols = Math.max(16, ...rows.map(r=>r.length));
+  while(header.length < maxCols) header.push('');
+  const cols = {
+    id: colIndex(header,['ID'],0),
+    cat: colIndex(header,['Categoría','Categoria'],1),
+    name: colIndex(header,['Nombre'],2)
+  };
+
+  const candidates = [];
+  const skipped = [];
+  const seenIds = new Set();
+
+  for (let r=1; r<rows.length; r++){
+    const row = rows[r]; while(row.length<maxCols) row.push('');
+    const cat = normalizeSpaces(row[cols.cat] || '');
+    const id = normalizeSpaces(row[cols.id] || '');
+    const name = normalizeSpaces(row[cols.name] || '');
+
+    if (!name) continue;
+    if (isBlockedCoverCategory(cat)) {
+      skipped.push(`IGNORADO ${cat}: ${name}`);
+      continue;
+    }
+    if (!isGameRow(row, cols)) {
+      skipped.push(`NO ES JUEGO (${cat || 'sin categoría'}): ${name}`);
+      continue;
+    }
+    if (!id) {
+      skipped.push(`SIN ID: ${name}`);
+      continue;
+    }
+    if (seenIds.has(id)) {
+      skipped.push(`ID REPETIDO EN EXCEL: ${id} - ${name}`);
+      continue;
+    }
+    seenIds.add(id);
+    candidates.push({id, name});
+  }
+
+  if (!candidates.length) {
+    lastReport = [
+      'AREA 51 - REPORTE PORTADAS POR ID',
+      '',
+      'No hay juegos con ID para generar portadas.',
+      '',
+      'Omitidos:',
+      ...(skipped.length ? skipped.map(x=>' - '+x) : [' - Sin omitidos.'])
+    ].join('\n');
+    $('downloadReportBtn').disabled = false;
+  if ($('downloadAlertsBtn')) $('downloadAlertsBtn').disabled = false;
+  if ($('downloadHistoryBtn')) $('downloadHistoryBtn').disabled = false;
+    log(lastReport);
+    return alert('No encontré juegos con ID para generar portadas.');
+  }
+
+  const zip = new JSZip();
+  const ok = [];
+  const fail = [];
+
+  for (let i=0; i<candidates.length; i++){
+    const item = candidates[i];
+    log(`Buscando portada ${i+1}/${candidates.length}: ${item.id} - ${item.name}`);
+    try {
+      const searchRes = await fetch('/api/buscarPortada?juego=' + encodeURIComponent(item.name));
+      const searchData = await searchRes.json();
+      if (!searchData.ok || !searchData.portadas || !searchData.portadas.length) {
+        fail.push(`${item.id} - ${item.name}: ${searchData.error || 'sin portada'}`);
+        continue;
+      }
+
+      const selected = searchData.portadas[0];
+      const dlRes = await fetch('/api/descargarPortada?url=' + encodeURIComponent(selected.url) + '&nombre=' + encodeURIComponent(`${item.id}-${safeFileName(item.name)}.jpg`));
+      if (!dlRes.ok) {
+        fail.push(`${item.id} - ${item.name}: no se pudo descargar imagen`);
+        continue;
+      }
+
+      const blob = await dlRes.blob();
+      const ext = extensionFromContentType(dlRes.headers.get('content-type'));
+      const filename = `${item.id}-${safeFileName(item.name)}.${ext}`;
+      zip.file(filename, blob);
+      ok.push(`${filename} | ${searchData.juego || item.name}`);
+    } catch (err) {
+      fail.push(`${item.id} - ${item.name}: ${err.message}`);
+    }
+  }
+
+  if (!ok.length) {
+    lastReport = [
+      'AREA 51 - REPORTE PORTADAS POR ID',
+      '',
+      `Juegos con ID detectados: ${candidates.length}`,
+      'Portadas generadas: 0',
+      '',
+      'Fallidas:',
+      ...(fail.length ? fail.map(x=>' - '+x) : [' - Sin detalle.']),
+      '',
+      'Omitidos:',
+      ...(skipped.length ? skipped.map(x=>' - '+x) : [' - Sin omitidos.'])
+    ].join('\n');
+    $('downloadReportBtn').disabled = false;
+  if ($('downloadAlertsBtn')) $('downloadAlertsBtn').disabled = false;
+  if ($('downloadHistoryBtn')) $('downloadHistoryBtn').disabled = false;
+    log(lastReport);
+    return alert('No se pudo generar ninguna portada.');
+  }
+
+  log('Comprimiendo portadas...');
+  const zipBlob = await zip.generateAsync({type:'blob'});
+  downloadBlob(zipBlob, 'AREA51_PORTADAS_POR_ID_JUEGOS.zip', 'application/zip');
+
+  lastReport = [
+    'AREA 51 - REPORTE PORTADAS POR ID',
+    '',
+    `Hoja procesada: ${sheetName}`,
+    `Juegos con ID detectados: ${candidates.length}`,
+    `Portadas generadas OK: ${ok.length}`,
+    `Fallidas: ${fail.length}`,
+    `Omitidos / manuales: ${skipped.length}`,
+    '',
+    'Reglas aplicadas:',
+    ' - Solo categoría Juegos.',
+    ' - Celulares, Hardware y PSPlus ignorados.',
+    ' - El archivo de cada portada empieza por ID.',
+    ' - Juegos sin ID quedan para revisión manual.',
+    '',
+    'Portadas OK:',
+    ...(ok.length ? ok.map(x=>' - '+x) : [' - Ninguna.']),
+    '',
+    'Fallidas:',
+    ...(fail.length ? fail.map(x=>' - '+x) : [' - Sin fallas.']),
+    '',
+    'Omitidos:',
+    ...(skipped.length ? skipped.map(x=>' - '+x) : [' - Sin omitidos.'])
+  ].join('\n');
+
+  $('downloadReportBtn').disabled = false;
+  if ($('downloadAlertsBtn')) $('downloadAlertsBtn').disabled = false;
+  if ($('downloadHistoryBtn')) $('downloadHistoryBtn').disabled = false;
+  $('kpiWarnings').textContent = String(fail.length + skipped.filter(x => x.startsWith('SIN ID')).length);
+  log(lastReport);
+}
+
+$('processBtn').addEventListener('click', ()=>process().catch(err=>{console.error(err); log('ERROR: '+err.message); alert('Error procesando: '+err.message);}));
+$('priceOnlyBtn').addEventListener('click', ()=>process({priceOnly:true}).catch(err=>{console.error(err); log('ERROR SOLO PRECIOS: '+err.message); alert('Error actualizando precios: '+err.message);}));
+$('coversBtn').addEventListener('click', ()=>generateCoversZip().catch(err=>{console.error(err); log('ERROR PORTADAS: '+err.message); alert('Error generando portadas: '+err.message);}));
+$('downloadReportBtn').addEventListener('click', ()=>downloadBlob(lastReport || 'Sin reporte', 'AREA51_reporte_importacion.txt', 'text/plain;charset=utf-8'));
+$('downloadAlertsBtn').addEventListener('click', ()=>downloadBlob(lastAlerts || 'Sin alertas', 'AREA51_ALERTAS.txt', 'text/plain;charset=utf-8'));
+$('downloadHistoryBtn').addEventListener('click', ()=>downloadBlob(lastHistory || 'Sin historial', 'AREA51_HISTORIAL_PRECIOS.txt', 'text/plain;charset=utf-8'));
+$('resetBtn').addEventListener('click', ()=>{ $('offerText').value=''; $('excelFile').value=''; lastReport=''; lastAlerts=''; lastHistory=''; $('status').textContent='Esperando Excel y listado...'; $('previewTable').querySelector('tbody').innerHTML=''; ['kpiPhysical','kpiOldGames','kpiNewGames','kpiWarnings'].forEach(id=>$(id).textContent='0'); $('downloadReportBtn').disabled=true; if ($('downloadAlertsBtn')) $('downloadAlertsBtn').disabled=true; if ($('downloadHistoryBtn')) $('downloadHistoryBtn').disabled=true; });
+</script>
+</body>
+</html>
